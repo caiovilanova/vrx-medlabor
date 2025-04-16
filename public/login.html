@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login - VRX Medlabor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/flowbite@1.6.5/dist/flowbite.min.css" rel="stylesheet" />
+    <style>
+      body {
+        background-color: #191C1F;
+      }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen text-white">
+    <div class="w-full max-w-md p-8 bg-gray-800 rounded-2xl shadow-lg">
+        <h2 class="text-3xl font-bold text-center text-teal-400 mb-6">VRX Medlabor</h2>
+        <form id="loginForm" method="POST" action="../src/controllers/login.php" class="space-y-6">
+            <div>
+                <label for="email" class="block text-sm font-medium text-teal-300">E-mail</label>
+                <input type="email" name="email" id="email" required
+                    class="mt-1 w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+            </div>
+            <div>
+                <label for="password" class="block text-sm font-medium text-teal-300">Senha</label>
+                <input type="password" name="password" id="password" required
+                    class="mt-1 w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+            </div>
+            <button type="submit"
+                class="w-full bg-teal-500 hover:bg-teal-600 text-white font-bold py-3 rounded-lg transition duration-200">
+                Entrar
+            </button>
+        </form>
+        <p id="errorMsg" class="text-red-500 mt-4 text-center hidden">Preencha todos os campos.</p>
+    </div>
+
+    <script>
+        document.getElementById("loginForm").addEventListener("submit", function (e) {
+            const email = document.getElementById("email").value.trim();
+            const password = document.getElementById("password").value.trim();
+            if (!email || !password) {
+                e.preventDefault();
+                document.getElementById("errorMsg").classList.remove("hidden");
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+[16-Apr-2025 14:14:57 UTC] PHP Fatal error:  Uncaught exception 'PDOException' with message 'SQLSTATE[42S22]: Column not found: 1054 Unknown column 'a.created_at' in 'field list'' in /home2/vrxtecnologia/public_html/medlabor/views/dashboard/index.php:29
+Stack trace:
+#0 /home2/vrxtecnologia/public_html/medlabor/views/dashboard/index.php(29): PDO->query('SELECT \n       ...')
+#1 {main}
+  thrown in /home2/vrxtecnologia/public_html/medlabor/views/dashboard/index.php on line 29

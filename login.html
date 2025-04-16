@@ -15,7 +15,7 @@
 <body class="flex items-center justify-center min-h-screen text-white">
     <div class="w-full max-w-md p-8 bg-gray-800 rounded-2xl shadow-lg">
         <h2 class="text-3xl font-bold text-center text-teal-400 mb-6">VRX Medlabor</h2>
-        <form id="loginForm" method="POST" action="../src/controllers/login.php" class="space-y-6">
+        <form id="loginForm" method="POST" action="src/controllers/login.php" class="space-y-6">
             <div>
                 <label for="email" class="block text-sm font-medium text-teal-300">E-mail</label>
                 <input type="email" name="email" id="email" required
@@ -35,14 +35,31 @@
     </div>
 
     <script>
+        // Validação no submit
         document.getElementById("loginForm").addEventListener("submit", function (e) {
             const email = document.getElementById("email").value.trim();
             const password = document.getElementById("password").value.trim();
             if (!email || !password) {
                 e.preventDefault();
+                document.getElementById("errorMsg").textContent = "Preencha todos os campos.";
                 document.getElementById("errorMsg").classList.remove("hidden");
             }
         });
+    
+        // Leitura do parâmetro de erro na URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const erro = urlParams.get('erro');
+        if (erro) {
+            const msg = {
+                1: "Preencha todos os campos.",
+                2: "E-mail ou senha inválidos."
+            }[erro] || "Erro desconhecido.";
+    
+            const errorMsg = document.getElementById("errorMsg");
+            errorMsg.textContent = msg;
+            errorMsg.classList.remove("hidden");
+        }
     </script>
+    
 </body>
 </html>

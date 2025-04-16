@@ -7,7 +7,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $senha = trim($_POST['password']);
 
     if (empty($email) || empty($senha)) {
-        header("Location: ../../public/login.php?erro=1");
+        header("Location: ../../login.html?erro=1");
         exit;
     }
 
@@ -23,13 +23,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['usuario_nome'] = $usuario['nome'];
         $_SESSION['usuario_nivel'] = $usuario['nivel'];
 
-        header("Location: ../../views/dashboard.php");
+        header("Location: ../../views/dashboard/");
         exit;
     } else {
-        header("Location: ../../public/login.php?erro=2");
+        header("Location: ../../login.html?erro=2");
         exit;
     }
 } else {
-    header("Location: ../../public/login.php");
+    header("Location: ../../login.html");
     exit;
 }

@@ -12,7 +12,6 @@ if (!isset($_GET['token']) || $_GET['token'] !== 'JeovaDeusTodoPoderoso') {
 require_once '../config/db.php';
 $data = $_POST;
 
-//para debug e confirmação de recebimento do webhook
 //file_put_contents(__DIR__ . '/log_dados_recebidos.txt', print_r($data, true), FILE_APPEND);
 
 if (!isset($data['leads']['status'][0])) {
@@ -22,7 +21,6 @@ if (!isset($data['leads']['status'][0])) {
 
 $lead = $data['leads']['status'][0];
 
-//etapa do funil para pré-agendamento
 $etapa_entrada = 84070027;
 if ((int)$lead['status_id'] !== $etapa_entrada || (int)$lead['old_status_id'] === $etapa_entrada) {
     http_response_code(200);
@@ -65,12 +63,19 @@ $unidade_nome = getCampo($custom_fields, $campos['unidade_nome']);
 $unidade_id = getCampo($custom_fields, $campos['unidade_id']);
 $convenio_id = getCampo($custom_fields, $campos['convenio_id']);
 $convenio_nome = getCampo($custom_fields, $campos['convenio_nome']);
+
 $data_raw = getCampo($custom_fields, $campos['data']);
 $hora_raw = getCampo($custom_fields, $campos['hora']);
 
-$data = $data_raw ? date('Y-m-d', $data_raw) : null;
-$hora = $hora_raw ? date('H:i:s', $hora_raw) : null;
+$data = null;
+$hora = null;
 
+if (is_numeric($data_raw)) {
+    $data = gmdate('Y-m-d', intval($data_raw));
+}
+if (is_numeric($hora_raw)) {
+    $hora = gmdate('H:i:s', intval($hora_raw));
+}
 
 $lead_id = isset($lead['id']) ? $lead['id'] : 0;
 $status_id = isset($lead['status_id']) ? $lead['status_id'] : 0;
@@ -78,12 +83,15 @@ $pipeline_id = isset($lead['pipeline_id']) ? $lead['pipeline_id'] : 0;
 $responsavel_id = isset($lead['responsible_user_id']) ? $lead['responsible_user_id'] : 0;
 
 $stmt = $pdo->prepare("INSERT INTO agendamentos (
-    paciente_nome, paciente_telefone, data, hora, unidade_id, procedimento_id, medico_id, convenio_id,numero_cartao_lead, numero_etapa_funil, funil_id, responsavel_id
+    paciente_nome, paciente_telefone, data, hora, unidade_id,
+    procedimento_id, medico_id, convenio_id, numero_cartao_lead, numero_etapa_funil, funil_id, responsavel_id
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
 $stmt->execute(array(
-    $paciente_nome, $telefone, $data, $hora, $unidade_id, $procedimento_id, $profissional_id, $convenio_id, $lead_id, $status_id, $pipeline_id, $responsavel_id
+    $paciente_nome, $telefone, $data, $hora, $unidade_id, 
+    $procedimento_id,  $profissional_id, $convenio_id, $lead_id, $status_id, $pipeline_id, $responsavel_id
 ));
 
 http_response_code(200);
 echo 'OK';
+

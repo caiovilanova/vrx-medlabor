@@ -12,6 +12,8 @@ if (!isset($_GET['token']) || $_GET['token'] !== 'JeovaDeusTodoPoderoso') {
 require_once '../config/db.php';
 $data = $_POST;
 
+//file_put_contents(__DIR__ . '/log_dados_recebidos.txt', print_r($data, true), FILE_APPEND);
+
 if (!isset($data['leads']['status'][0])) {
     http_response_code(400);
     exit('Lead não detectado');
@@ -29,11 +31,15 @@ $campos = array(
     'nome_paciente' => 1181824,
     'telefone' => 203274,
     'procedimento_id' => 1194274,
+    'procedimento_nome' => 1194276,
     'profissional_id' => 1194268,
+    'profissional_nome' => 1194270,
+    'unidade_nome' => 1194016,
     'unidade_id' => 1195154,
+    'data' => 1194284,
+    'hora' => 1194286,
     'convenio_id' => 1195134,
-    'agendamento_data_escolhida' => 1195732,
-    'agendamento_hora_escolhida' => 1195734
+    'convenio_nome' => 1195152
 );
 
 function getCampo($campos_array, $field_id) {
@@ -50,25 +56,25 @@ $custom_fields = isset($lead['custom_fields']) ? $lead['custom_fields'] : array(
 $paciente_nome = getCampo($custom_fields, $campos['nome_paciente']);
 $telefone = getCampo($custom_fields, $campos['telefone']);
 $procedimento_id = getCampo($custom_fields, $campos['procedimento_id']);
+$procedimento_nome = getCampo($custom_fields, $campos['procedimento_nome']);
 $profissional_id = getCampo($custom_fields, $campos['profissional_id']);
+$profissional_nome = getCampo($custom_fields, $campos['profissional_nome']);
+$unidade_nome = getCampo($custom_fields, $campos['unidade_nome']);
 $unidade_id = getCampo($custom_fields, $campos['unidade_id']);
 $convenio_id = getCampo($custom_fields, $campos['convenio_id']);
+$convenio_nome = getCampo($custom_fields, $campos['convenio_nome']);
 
-$data_raw = getCampo($custom_fields, $campos['agendamento_data_escolhida']);
-$hora_raw = getCampo($custom_fields, $campos['agendamento_hora_escolhida']);
+$data_raw = getCampo($custom_fields, $campos['data']);
+$hora_raw = getCampo($custom_fields, $campos['hora']);
 
 $data = null;
 $hora = null;
 
-if (!empty($data_raw)) {
-    $partes = explode('/', $data_raw);
-    if (count($partes) === 3) {
-        $data = $partes[2] . '-' . $partes[1] . '-' . $partes[0];
-    }
+if (is_numeric($data_raw)) {
+    $data = gmdate('Y-m-d', intval($data_raw));
 }
-
-if (!empty($hora_raw)) {
-    $hora = trim($hora_raw);
+if (is_numeric($hora_raw)) {
+    $hora = gmdate('H:i:s', intval($hora_raw));
 }
 
 $lead_id = isset($lead['id']) ? $lead['id'] : 0;
@@ -82,9 +88,10 @@ $stmt = $pdo->prepare("INSERT INTO agendamentos (
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
 $stmt->execute(array(
-    $paciente_nome, $telefone, $data, $hora, $unidade_id,
-    $procedimento_id, $profissional_id, $convenio_id, $lead_id, $status_id, $pipeline_id, $responsavel_id
+    $paciente_nome, $telefone, $data, $hora, $unidade_id, 
+    $procedimento_id,  $profissional_id, $convenio_id, $lead_id, $status_id, $pipeline_id, $responsavel_id
 ));
 
 http_response_code(200);
 echo 'OK';
+

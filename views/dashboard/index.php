@@ -8,10 +8,26 @@ if (!isset($_SESSION['usuario_id'])) {
 
 require_once '../../config/db.php';
 
+$filtro = isset($_GET['filtro']) ? $_GET['filtro'] : 'pendentes';
+$where = '';
+
+switch ($filtro) {
+    case 'confirmados':
+        $where = "WHERE a.status = 'confirmado'";
+        break;
+    case 'cancelados':
+        $where = "WHERE a.status = 'cancelado'";
+        break;
+    default:
+        $where = "WHERE a.status = 'pendente'";
+        break;
+}
+
 $sql = "SELECT 
             a.id,
             a.numero_cartao_lead,
             a.paciente_nome,
+            a.paciente_telefone,
             a.data,
             a.hora,
             a.status,
@@ -25,7 +41,8 @@ $sql = "SELECT
         LEFT JOIN procedimentos p ON a.procedimento_id = p.id
         LEFT JOIN unidades u ON a.unidade_id = u.id
         LEFT JOIN convenios c ON a.convenio_id = c.id
-        ORDER BY a.data DESC, a.hora ASC
+        $where
+        ORDER BY a.data ASC, a.hora ASC
         LIMIT 0,100";
 
 $stmt = $pdo->query($sql);
@@ -37,12 +54,10 @@ function agruparPorData($agendamentos)
     foreach ($agendamentos as $ag) {
         $agrupados[$ag['data']][] = $ag;
     }
-    krsort($agrupados);
+    ksort($agrupados);
     return $agrupados;
 }
 $ag_por_data = agruparPorData($agendamentos);
-
-ob_start();
 
 $pendentes = array_filter($agendamentos, function ($a) {
     return $a['status'] === 'pendente';
@@ -57,9 +72,28 @@ $ontem = date('Y-m-d', strtotime('-1 day'));
 $agendamentos_ontem = array_filter($agendamentos, function ($a) use ($ontem) {
     return $a['data'] === $ontem;
 });
+
+// Consulta leads aguardando atendimento humano no Kommo
+$fila_whatsapp = 0;
+try {
+    $url = "https://medlabor.amocrm.com/api/v4/leads?filter[status_id]=79093771&filter[pipeline_id]=10314407";
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Authorization: Bearer ' . getenv('KOMMO_ACCESS_TOKEN')
+    ]);
+    $response = curl_exec($ch);
+    curl_close($ch);
+    $data = json_decode($response, true);
+    $fila_whatsapp = isset($data['_total_items']) ? $data['_total_items'] : 0;
+} catch (Exception $e) {
+    $fila_whatsapp = 0;
+}
+
+ob_start();
 ?>
 
-<div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
+<div class="grid grid-cols-1 sm:grid-cols-4 gap-6 mb-6">
     <div class="bg-gray-800 p-4 rounded-lg text-center">
         <p class="text-teal-400 text-lg font-semibold"><?= count($pendentes) ?></p>
         <p>Pré-agendamentos pendentes</p>
@@ -72,6 +106,18 @@ $agendamentos_ontem = array_filter($agendamentos, function ($a) use ($ontem) {
         <p class="text-teal-400 text-lg font-semibold"><?= count($agendamentos_ontem) ?></p>
         <p>Ontem</p>
     </div>
+    <div class="bg-gray-800 p-4 rounded-lg text-center">
+        <p class="text-red-400 text-lg font-semibold flex items-center justify-center gap-1">
+            <i class="fab fa-whatsapp"></i> <?= $fila_whatsapp ?>
+        </p>
+        <p>Na fila de atendimento</p>
+    </div>
+</div>
+
+<div class="mb-4 flex gap-4">
+    <a href="?filtro=pendentes" class="px-4 py-2 rounded bg-teal-600 text-white">Pendentes</a>
+    <a href="?filtro=confirmados" class="px-4 py-2 rounded bg-blue-600 text-white">Confirmados</a>
+    <a href="?filtro=cancelados" class="px-4 py-2 rounded bg-red-600 text-white">Cancelados</a>
 </div>
 
 <?php foreach ($ag_por_data as $data => $lista): ?>
@@ -95,7 +141,7 @@ $agendamentos_ontem = array_filter($agendamentos, function ($a) use ($ontem) {
                 <div><strong>Unidade:</strong> <?= htmlspecialchars($ag['unidade']) ?></div>
                 <div><strong>Data:</strong> <?= date('d/m/Y', strtotime($ag['data'])) ?></div>
                 <div><strong>Hora:</strong> <?= htmlspecialchars($ag['hora']) ?></div>
-                <div><strong>Convênio:</strong> <?= htmlspecialchars($ag['convenio']) ?></div>
+                <div><strong>Telefone:</strong> <?= htmlspecialchars($ag['paciente_telefone']) ?></div>
                 <div class="text-xs text-gray-400">
                     <strong>Solicitado em:</strong> <?= date('d/m/Y H:i', strtotime($ag['solicitado_em'])) ?>
                 </div>
@@ -119,138 +165,7 @@ $agendamentos_ontem = array_filter($agendamentos, function ($a) use ($ontem) {
     <?php endforeach; ?>
 <?php endforeach; ?>
 
-<!-- Modal Cancelamento -->
-<div id="motivoModal" class="hidden fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center">
-    <form id="cancelForm" method="POST" class="bg-gray-800 p-6 rounded-xl w-full max-w-md">
-        <input type="hidden" name="id" id="cancelar_id">
-        <h2 class="text-xl text-white mb-4">Motivo do cancelamento</h2>
-        <select name="motivo_id" class="w-full p-2 rounded bg-gray-700 text-white">
-            <option value="1">Paciente desistiu</option>
-            <option value="2">Convênio não cobre</option>
-            <option value="3">Erro de agendamento</option>
-            <option value="4">Outro</option>
-        </select>
-        <div class="mt-4 text-right">
-            <button type="button" onclick="fecharModal()" class="mr-2 px-4 py-2 bg-gray-500 text-white rounded">Fechar</button>
-            <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded">Cancelar Agendamento</button>
-        </div>
-    </form>
-</div>
-
-<script>
-    document.querySelectorAll('[data-lead-id][data-action="confirmar"]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const leadId = btn.getAttribute('data-lead-id');
-            const card = btn.closest('.shadow-md');
-
-            if (!leadId || !card) return alert('Erro ao identificar o agendamento.');
-
-            const confirmar = confirm('Tem certeza que deseja confirmar esse agendamento?');
-            if (!confirmar) return;
-
-            btn.disabled = true;
-            btn.textContent = 'Confirmando...';
-
-            try {
-                const resposta = await fetch('../../api/kommo_confirmar_agendamento.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        lead_id: leadId
-                    })
-                });
-
-                const resultado = await resposta.json();
-
-                if (resultado.sucesso) {
-                    card.classList.add('opacity-50', 'pointer-events-none'); // opaco e não clicável
-                    alert('Agendamento confirmado com sucesso.');
-                } else {
-                    alert('Erro ao confirmar: ' + (resultado.erro || 'Erro desconhecido'));
-                }
-            } catch (erro) {
-                alert('Falha na solicitação: ' + erro.message);
-            } finally {
-                btn.disabled = false;
-                btn.textContent = 'Confirmar';
-            }
-        });
-    });
-</script>
-
-
-<?php
-// Buscando os motivos de cancelamento do banco
-$motivos = $pdo->query("SELECT id, descricao FROM motivos_cancelamento ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
-?>
-
-<!-- Modal de Cancelamento -->
-<div id="modal-cancelar" class="hidden fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
-    <div class="bg-gray-800 rounded-xl p-6 w-full max-w-md">
-        <h2 class="text-xl text-white font-semibold mb-4">Motivo do Cancelamento</h2>
-        <form id="form-cancelar">
-            <input type="hidden" name="agendamento_id" id="cancelar-id">
-            <select name="motivo_id" id="motivo_id" required class="w-full mb-4 p-2 bg-gray-700 text-white rounded">
-                <option value="">Selecione um motivo</option>
-                <?php foreach ($motivos as $motivo): ?>
-                    <option value="<?= $motivo['id'] ?>"><?= htmlspecialchars($motivo['descricao']) ?></option>
-                <?php endforeach; ?>
-            </select>
-            <div class="flex justify-end gap-2">
-                <button type="button" onclick="fecharModalCancelar()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded text-white">Fechar</button>
-                <button type="submit" class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded text-white">Cancelar Agendamento</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-
-
-<script>
-    const KOMMO_SECRET_KEY = '<?php getenv("KOMMO_SECRET_KEY") ?>';
-
-
-    function abrirModalCancelar(id) {
-        document.getElementById('cancelar-id').value = id;
-        document.getElementById('modal-cancelar').classList.remove('hidden');
-    }
-
-    function fecharModalCancelar() {
-        document.getElementById('modal-cancelar').classList.add('hidden');
-    }
-
-    document.getElementById('form-cancelar').addEventListener('submit', function(e) {
-        e.preventDefault();
-        const id = document.getElementById('cancelar-id').value;
-        const motivo = document.getElementById('motivo_id').value;
-
-        fetch('../../api/kommo_cancelar_agendamento.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'Authorization': 'Bearer ' + KOMMO_SECRET_KEY
-
-                },
-
-                body: `id=${id}&motivo_id=${motivo}`
-            })
-            .then(res => res.text())
-            .then(res => {
-                if (res === 'OK') {
-                    const card = document.querySelector(`[data-card-id="${id}"]`);
-                    if (card) card.classList.add('opacity-40');
-                    fecharModalCancelar();
-                } else {
-                    alert('Erro ao cancelar: ' + res);
-                }
-            });
-    });
-</script>   
-
 <?php
 $conteudo = ob_get_clean();
 include_once '../layouts/base.php';
 ?>
-
